@@ -1,0 +1,140 @@
+# NAMENODE Managed
+- hosts: namenode
+
+  vars:
+  - namenode_dir: "nn_dir"
+  - cluster_port_no: "9001"
+
+  tasks:
+  - name: "Copy JAVA Software"
+    copy:
+            dest: "/root/"
+            src: "/root/jdk-8u171-linux-x64.rpm"
+
+  - name: "Install JAVA Software"
+    yum:
+            name: "jdk-8u171-linux-x64.rpm"
+            state: present
+            disable_gpg_check: yes
+
+  - name: "Copy HADOOP Software"
+    copy:
+            dest: "/root/"
+            src: "/root/hadoop-1.2.1-1.x86_64.rpm"
+  
+  - name: "Checking Hadoop is Install or Not"
+    yum:
+            list: hadoop
+    register: hadoop
+
+  - name: "Install HADOOP Software"
+    command: "rpm -i hadoop-1.2.1-1.x86_64.rpm --force"
+    when: hadoop.results == []
+
+  - name: "Creating a New Directory for Namenode"
+    file:
+            path: "/{{ namenode_dir }}"
+            state: directory
+
+  - name: "Configuring hdfs-site File"
+    blockinfile:
+            path: "/etc/hadoop/hdfs-site.xml"
+            insertafter: "<configuration>"
+            block:  <property>
+                    <name>dfs.name.dir</name>
+                    <value>/{{ namenode_dir }}</value>
+                    </property>
+
+  - name: "configuring core-site File"
+    blockinfile:
+            path: "/etc/hadoop/core-site.xml"
+            insertafter: "<configuration>"
+            block:
+                    <property>
+                    <name>fs.default.name</name>
+                    <value>hdfs://{{ groups['namenode'][0] }}:{{ cluster_port_no }}</value>
+                    </property>
+
+ 
+  - name: "Checking status of JPS service"
+    shell: "jps"
+    register: NameNode
+    
+  - name: "Formatting the Name Node Directory"
+    shell: "echo Y | hadoop namenode -format"
+    when: NameNode
+
+  - name: "Starting Name Node Service"
+    command: "hadoop-daemon.sh start namenode"
+    when: NameNode
+
+
+
+
+
+# DATANODE Managed
+- hosts: datanode
+
+  vars:
+  - datanode_dir: "dn_dir"
+  - cluster_port_no: "9001"
+
+  tasks:
+  - name: "Copy JAVA Software"
+    copy:
+            dest: "/root/"
+            src: "/root/jdk-8u171-linux-x64.rpm"
+
+  - name: "Install JAVA Software"
+    yum:
+            name: "jdk-8u171-linux-x64.rpm"
+            state: present
+            disable_gpg_check: yes
+
+  - name: "Copy HADOOP Software"
+    copy:
+            dest: "/root/"
+            src: "/root/hadoop-1.2.1-1.x86_64.rpm"
+
+  - name: "Checking Hadoop is Install or Not"
+    yum:
+            list: hadoop
+    register: hadoop
+
+  - name: "Install HADOOP Software"
+    command: "rpm -i hadoop-1.2.1-1.x86_64.rpm --force"
+    when: hadoop.results == []
+
+  - name: "Creating a New Directory for Namenode"
+    file:
+            path: "/{{ datanode_dir }}"
+            state: directory
+
+  - name: "Configuring hdfs-site File"
+    blockinfile:
+            path: "/etc/hadoop/hdfs-site.xml"
+            insertafter: "<configuration>"
+            block:  <property>
+                    <name>dfs.name.dir</name>
+                    <value>/{{ datanode_dir }}</value>
+                    </property>
+
+  - name: "configuring core-site File"
+    blockinfile:
+            path: "/etc/hadoop/core-site.xml"
+            insertafter: "<configuration>"
+            block:
+                    <property>
+                    <name>fs.default.name</name>
+                    <value>hdfs://{{ groups['namenode'][0] }}:{{ cluster_port_no }}</value>
+                    </property>
+
+
+  - name: "Checking status of JPS service"
+    shell: "jps"
+    register: DataNode
+
+  - name: "Starting Data Node Service"
+    command: "hadoop-daemon.sh start datanode"
+    when: DataNode
+
